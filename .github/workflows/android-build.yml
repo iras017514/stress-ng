@@ -1,7 +1,7 @@
 name: Android CI
 
 on:
-  workflow_dispatch: # 允许手动点击按钮触发编译
+  workflow_dispatch: 
 
 jobs:
   build:
@@ -11,18 +11,24 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Android NDK
-        uses: nwidger/setup-ndk@v1
+      # 使用官方提供的 setup-android
+      - name: Set up NDK
+        uses: android-actions/setup-android@v3
         with:
-          ndk-version: r26b # 使用稳定的 NDK 版本
+          # 我们只需要 NDK，这里指定版本
+          ndk-version: '26.1.10909125' 
 
       - name: Compile stress-ng for Android
         run: |
-          # 设置交叉编译器路径（aarch64 对应主流 64 位安卓）
-          export CC=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang
+          # 官方 Action 的 NDK 路径通常在 $ANDROID_SDK_ROOT/ndk/<version>
+          # 我们直接利用通配符定位编译器路径
+          NDK_PATH=$ANDROID_SDK_ROOT/ndk/26.1.10909125
+          export CC=$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang
           
-          # 清理并开始静态编译（静态编译可以脱离库环境运行）
+          echo "Using Compiler: $CC"
+          
           make clean
+          # 强制静态编译，确保生成的二进制文件在车机上能独立运行
           make CC="$CC" STATIC=1 -j$(nproc)
 
       - name: Upload Binary
