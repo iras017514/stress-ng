@@ -1,0 +1,32 @@
+name: Android CI
+
+on:
+  workflow_dispatch: # 允许手动点击按钮触发编译
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Android NDK
+        uses: nwidger/setup-ndk@v1
+        with:
+          ndk-version: r26b # 使用稳定的 NDK 版本
+
+      - name: Compile stress-ng for Android
+        run: |
+          # 设置交叉编译器路径（aarch64 对应主流 64 位安卓）
+          export CC=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang
+          
+          # 清理并开始静态编译（静态编译可以脱离库环境运行）
+          make clean
+          make CC="$CC" STATIC=1 -j$(nproc)
+
+      - name: Upload Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: stress-ng-android-aarch64
+          path: stress-ng
