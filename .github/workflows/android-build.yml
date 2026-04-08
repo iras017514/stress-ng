@@ -1,38 +1,20 @@
-name: Android CI
-
-on:
-  workflow_dispatch: 
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      # 使用官方提供的 setup-android
-      - name: Set up NDK
-        uses: android-actions/setup-android@v3
-        with:
-          # 我们只需要 NDK，这里指定版本
-          ndk-version: '26.1.10909125' 
-
-      - name: Compile stress-ng for Android
+- name: Compile stress-ng for Android
         run: |
-          # 官方 Action 的 NDK 路径通常在 $ANDROID_SDK_ROOT/ndk/<version>
-          # 我们直接利用通配符定位编译器路径
-          NDK_PATH=$ANDROID_SDK_ROOT/ndk/26.1.10909125
-          export CC=$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang
+          # 自动查找 NDK 中 clang 的位置，避免写死路径
+          # ANDROID_NDK_LATEST_HOME 是 GitHub Actions 预设的指向最新安装 NDK 的变量
+          NDK_PATH=$ANDROID_NDK_LATEST_HOME
           
-          echo "Using Compiler: $CC"
+          # 查找 aarch64 交叉编译器的具体路径
+          CLANG_PATH=$(find $NDK_PATH -name "aarch64-linux-android30-clang" | head -n 1)
+          
+          if [ -z "$CLANG_PATH" ]; then
+            echo "错误: 找不到 aarch64-linux-android30-clang"
+            exit 1
+          fi
+          
+          export CC=$CLANG_PATH
+          echo "使用编译器路径: $CC"
           
           make clean
-          # 强制静态编译，确保生成的二进制文件在车机上能独立运行
+          # 增加静态编译参数并忽略一些非关键的编译错误（stress-ng 源码很大）
           make CC="$CC" STATIC=1 -j$(nproc)
-
-      - name: Upload Binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: stress-ng-android-aarch64
-          path: stress-ng
